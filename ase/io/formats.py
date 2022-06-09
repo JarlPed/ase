@@ -585,7 +585,10 @@ def open_with_compression(filename: str, mode: str = 'r') -> IO:
         return lzma.open(filename, mode)
     else:
         # Either None or unknown string
-        return open(filename, mode)
+        if mode.count("b") == 0:
+            return open(filename, mode, encoding="utf-8")
+        else:
+            return open(filename, mode)
 
 
 def wrap_read_function(read, filename, index=None, **kwargs):
