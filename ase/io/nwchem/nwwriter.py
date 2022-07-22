@@ -196,6 +196,41 @@ _xc_conv = dict(lda='slater pw91lda',
                 pw91='xperdew91 perdew91',
                 )
 
+def _insert_mo_io(params):
+    if not 'vectors' in params.keys():
+        return params
+    
+    temp_stringparams = ""
+    
+    
+    if 'input' in  params['vectors'].keys():
+        if 'rotate' in  params['vectors'].keys():
+            temp_stringparams += ' input rotate ' +  params['vectors']['rotate'] + " " +  params['vectors']['input']
+        else:
+            temp_stringparams += ' input ' +  params['vectors']['input']
+            
+    if 'reorder' in  params['vectors'].keys():
+        temp_stringparams += ' reorder ' +  ' '.join( params['vectors']['swap'] ) # 
+        
+    if 'fragment' in  params['vectors'].keys():
+        temp_stringparams += ' fragment ' +  ' '.join( params['vectors']['swap'] ) # add fragment MO files.
+    
+    if 'swap' in  params['vectors'].keys():
+        temp_stringparams += ' swap ' +  ' '.join( params['vectors']['swap'] )
+    
+    if 'output' in  params['vectors'].keys():
+        temp_stringparams += ' output ' +  params['vectors']['output']
+
+    params.pop( 'vectors')
+    if 'scf' in params:
+        params['scf']['vectors'] = temp_stringparams
+    elif 'dft' in params:
+        params['dft']['vectors'] = temp_stringparams
+    elif 'nwpw' in params:
+        params['nwpw']['vectors'] = temp_stringparams
+    
+    
+    return params
 
 def _update_mult(magmom_tot, **params):
     theory = params['theory']
@@ -225,7 +260,7 @@ def _update_mult(magmom_tot, **params):
     elif theory in ['pspw', 'band', 'paw']:
         params['nwpw'] = dict(mult=magmom_mult)
 
-    return params
+    return _insert_mo_io( params)
 
 
 def _get_kpts(atoms, **params):
@@ -308,7 +343,10 @@ def write_nwchem_in(fd, atoms, properties=None, echo=False, **params):
             params['nwpw']['xc'] = xc
 
     magmom_tot = int(atoms.get_initial_magnetic_moments().sum())
+    
     params = _update_mult(magmom_tot, **params)
+    #if 'vectors' in params:
+    #    params['vectors'] = None
 
     label = params.get('label', 'nwchem')
     perm = os.path.abspath(params.pop('perm', label))
@@ -328,9 +366,12 @@ def write_nwchem_in(fd, atoms, properties=None, echo=False, **params):
                 '{} {}'.format(restart_kw, short_label),
                 '\n'.join(_get_geom(atoms, **params)),
                 '\n'.join(_get_basis(**params)),
-                '\n'.join(_get_other(**params)),
-                '\n'.join(_get_set(**params.get('set', dict()))),
-                'task {} {}'.format(theory, task),
-                '\n'.join(_get_bandpath(params.get('bandpath', None)))])
+                '\n'.join(_get_other(**params)),  # here, the definition of task is passed on. scf/dft block
+                '\n'.join(_get_set(**params.get('set', dict()))), 
+                'task {} {}'.format(theory, task), ])
+    if "DPLOT" in  params.keys():
+        out.extend(['task DPLOT'])
+        
+    out.extend( [ '\n'.join(_get_bandpath(params.get('bandpath', None)))])
 
     fd.write('\n\n'.join(out))
