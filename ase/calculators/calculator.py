@@ -935,6 +935,10 @@ class FileIOCalculator(Calculator):
             msg = ('Calculator "{}" failed with command "{}" failed in '
                    '{} with error code {}'.format(self.name, command,
                                                   path, errorcode))
+            
+            if 'nwchem' in command and errorcode == 4294967295:
+                msg += ": Convergence not met"
+            
             raise CalculationFailed(msg)
 
     def write_input(self, atoms, properties=None, system_changes=None):
